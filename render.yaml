@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: todo-mvc-poc
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      # Connection string do Supabase (Session pooler). Definida no painel, nunca no repo.
+      - key: ConnectionStrings__Default
+        sync: false
