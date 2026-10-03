@@ -3,3 +3,4 @@
 **/.vs/
 .git/
 docker-compose.yml
+src/TodoApp.Client/

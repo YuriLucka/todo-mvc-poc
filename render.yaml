@@ -1,4 +1,5 @@
 services:
+  # API ASP.NET Core (Docker). Mantem o nome original do servico.
   - type: web
     name: todo-mvc-poc
     runtime: docker
@@ -7,7 +8,32 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /healthz
     autoDeploy: true
+    buildFilter:
+      paths:
+        - src/TodoApp.Api/**
+        - src/TodoApp.Shared/**
+        - Dockerfile
     envVars:
       # Connection string do Supabase (Session pooler). Definida no painel, nunca no repo.
       - key: ConnectionStrings__Default
         sync: false
+      - key: Cors__Origins
+        value: https://todo-app-client-poc.onrender.com
+
+  # Front Blazor WebAssembly (Static Site, CDN, nao hiberna).
+  - type: web
+    name: todo-app-client-poc
+    runtime: static
+    buildCommand: >-
+      curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --install-dir ./.dotnet &&
+      DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+      ./.dotnet/dotnet publish src/TodoApp.Client/TodoApp.Client.csproj -c Release -o out
+    staticPublishPath: out/wwwroot
+    buildFilter:
+      paths:
+        - src/TodoApp.Client/**
+        - src/TodoApp.Shared/**
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

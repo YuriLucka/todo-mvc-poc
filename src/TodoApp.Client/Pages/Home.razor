@@ -1,0 +1,176 @@
+@page "/"
+@inject TodoApiClient Api
+
+<PageTitle>Tarefas</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <h1 class="h3 mb-1">Tarefas</h1>
+
+        @if (todos is null && error is null)
+        {
+            <div class="d-flex align-items-center gap-2 text-muted py-4">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span>Carregando tarefas...</span>
+            </div>
+            @if (slowLoad)
+            {
+                <div class="alert alert-info py-2">
+                    A API está acordando (plano free do Render hiberna após inatividade). Isso pode levar até um minuto.
+                </div>
+            }
+        }
+        else
+        {
+            @if (todos is not null)
+            {
+                <p class="text-muted mb-4">@todos.Count(t => !t.IsDone) pendente(s) de @todos.Count</p>
+            }
+
+            @if (error is not null)
+            {
+                <div class="alert alert-danger py-2 d-flex justify-content-between align-items-center">
+                    <span>@error</span>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="LoadAsync">Tentar de novo</button>
+                </div>
+            }
+
+            <EditForm Model="newTodo" OnValidSubmit="CreateAsync" class="mb-4">
+                <DataAnnotationsValidator />
+                <div class="d-flex gap-2">
+                    <InputText @bind-Value="newTodo.Title" class="form-control" placeholder="O que precisa ser feito?" maxlength="200" disabled="@busy" />
+                    <button type="submit" class="btn btn-primary text-nowrap" disabled="@busy">Adicionar</button>
+                </div>
+                <ValidationMessage For="() => newTodo.Title" class="text-danger small" />
+            </EditForm>
+
+            @if (todos is { Count: 0 })
+            {
+                <p class="text-center text-muted py-5 border rounded">Nenhuma tarefa ainda.</p>
+            }
+            else if (todos is not null)
+            {
+                <ul class="list-group">
+                    @foreach (var todo in todos)
+                    {
+                        <li class="list-group-item d-flex align-items-center gap-3" @key="todo.Id">
+                            <button class="btn btn-sm @(todo.IsDone ? "btn-success" : "btn-outline-secondary")" disabled="@busy"
+                                    title="@(todo.IsDone ? "Marcar como pendente" : "Marcar como concluída")"
+                                    @onclick="() => ToggleAsync(todo)">
+                                @(todo.IsDone ? "Feita" : "Pendente")
+                            </button>
+
+                            @if (editingId == todo.Id)
+                            {
+                                <input class="form-control form-control-sm flex-grow-1" @bind="editTitle" maxlength="200"
+                                       @onkeydown="e => OnEditKeyAsync(e, todo)" />
+                                <button class="btn btn-sm btn-link" disabled="@busy" @onclick="() => SaveEditAsync(todo)">Salvar</button>
+                                <button class="btn btn-sm btn-link text-muted" @onclick="CancelEdit">Cancelar</button>
+                            }
+                            else
+                            {
+                                <span class="flex-grow-1 @(todo.IsDone ? "text-decoration-line-through text-muted" : "")">@todo.Title</span>
+                                <button class="btn btn-sm btn-link" @onclick="() => StartEdit(todo)">Editar</button>
+                                <button class="btn btn-sm btn-link text-danger" disabled="@busy" @onclick="() => DeleteAsync(todo)">Excluir</button>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<TodoDto>? todos;
+    private TodoInput newTodo = new();
+    private string? error;
+    private bool busy;
+    private bool slowLoad;
+    private int? editingId;
+    private string editTitle = string.Empty;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        error = null;
+        todos = null;
+        slowLoad = false;
+        using var slowTimer = new Timer(_ => { slowLoad = true; InvokeAsync(StateHasChanged); }, null, 3000, Timeout.Infinite);
+        try
+        {
+            todos = await Api.ListAsync();
+        }
+        catch (Exception)
+        {
+            error = "Não foi possível carregar as tarefas.";
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var created = await Api.CreateAsync(newTodo);
+            todos!.Insert(todos.FindIndex(t => t.IsDone) is var i and >= 0 ? i : todos.Count, created);
+            newTodo = new();
+        }, "Não foi possível adicionar a tarefa.");
+    }
+
+    private Task ToggleAsync(TodoDto todo) => RunAsync(async () =>
+    {
+        await Api.ToggleAsync(todo.Id);
+        todos = await Api.ListAsync();
+    }, "Não foi possível atualizar a tarefa.");
+
+    private Task DeleteAsync(TodoDto todo) => RunAsync(async () =>
+    {
+        await Api.DeleteAsync(todo.Id);
+        todos!.RemoveAll(t => t.Id == todo.Id);
+    }, "Não foi possível excluir a tarefa.");
+
+    private void StartEdit(TodoDto todo)
+    {
+        editingId = todo.Id;
+        editTitle = todo.Title;
+    }
+
+    private void CancelEdit() => editingId = null;
+
+    private async Task OnEditKeyAsync(KeyboardEventArgs e, TodoDto todo)
+    {
+        if (e.Key == "Enter") await SaveEditAsync(todo);
+        else if (e.Key == "Escape") CancelEdit();
+    }
+
+    private Task SaveEditAsync(TodoDto todo) => RunAsync(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(editTitle))
+        {
+            error = "Informe um título.";
+            return;
+        }
+        var updated = await Api.UpdateAsync(todo.Id, new TodoInput { Title = editTitle, IsDone = todo.IsDone });
+        todos![todos.FindIndex(t => t.Id == todo.Id)] = updated;
+        editingId = null;
+    }, "Não foi possível salvar a tarefa.");
+
+    private async Task RunAsync(Func<Task> action, string failMessage)
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            await action();
+        }
+        catch (Exception)
+        {
+            error = failMessage;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}
