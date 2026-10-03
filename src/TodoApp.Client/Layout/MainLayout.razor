@@ -1,10 +1,18 @@
 @inherits LayoutComponentBase
 
 <header>
-    <nav class="navbar navbar-light bg-white border-bottom mb-4">
+    <nav class="navbar navbar-expand navbar-light bg-white border-bottom mb-4">
         <div class="container">
             <a class="navbar-brand" href="">TodoApp</a>
-            <span class="text-muted small">Blazor WebAssembly + ASP.NET Core API</span>
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Tarefas</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="uso">Uso</NavLink>
+                </li>
+            </ul>
+            <span class="text-muted small d-none d-md-inline">Blazor WebAssembly + ASP.NET Core API</span>
         </div>
     </nav>
 </header>

@@ -13,5 +13,6 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"]
 
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<TodoApiClient>();
+builder.Services.AddScoped<UsageApiClient>();
 
 await builder.Build().RunAsync();

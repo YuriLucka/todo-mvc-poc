@@ -1,0 +1,45 @@
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-baseline mb-1">
+            <h2 class="h6 mb-0">@Label</h2>
+            <span class="small fw-semibold">@Percent.ToString("0.#")%</span>
+        </div>
+        <div class="progress mb-2" role="progressbar" aria-label="@Label"
+             aria-valuenow="@((int)Percent)" aria-valuemin="0" aria-valuemax="100" style="height: 10px;">
+            <div class="progress-bar @BarClass" style="width: @(Math.Max(Percent, 0.5).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+        </div>
+        <div class="d-flex justify-content-between small text-muted">
+            <span>@Detail</span>
+            <span class="text-nowrap ms-2">@Format(Used) de @Format(Limit)</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Detail { get; set; }
+    [Parameter, EditorRequired] public long Used { get; set; }
+    [Parameter, EditorRequired] public long Limit { get; set; }
+
+    private double Percent => Limit > 0 ? Math.Min(100, Used * 100.0 / Limit) : 0;
+
+    private string BarClass => Percent switch
+    {
+        >= 90 => "bg-danger",
+        >= 70 => "bg-warning",
+        _ => "bg-success"
+    };
+
+    private static string Format(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        double value = bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return $"{value:0.#} {units[unit]}";
+    }
+}

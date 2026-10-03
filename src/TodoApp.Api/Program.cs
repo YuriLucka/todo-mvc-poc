@@ -17,6 +17,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 builder.Services.AddDbContext<AppDbContext>(o => o.UseNpgsql(connectionString));
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 builder.Services.AddProblemDetails();
+builder.Services.AddMemoryCache();
 
 // Origens do front (Blazor WASM) separadas por virgula, ex.: Cors__Origins=https://app.onrender.com
 var origins = (builder.Configuration["Cors:Origins"] ?? string.Empty)
@@ -35,5 +36,6 @@ app.UseCors();
 
 app.MapHealthChecks("/healthz");
 app.MapTodoEndpoints();
+app.MapUsageEndpoints();
 
 app.Run();
